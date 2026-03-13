@@ -1,0 +1,203 @@
+---
+title: "Stash File Structure"
+description: "Learn about the file structure and locations of TokenStash caches"
+---
+
+TokenStash uses a simple, predictable directory structure to store cached project context. Understanding this structure helps you debug, customize, and version control your stash.
+
+## Directory Locations
+
+TokenStash maintains two separate stash locations:
+
+<CardGroup cols={2}>
+  <Card title="Global Stash" icon="globe">
+    **Location:** `~/.claude/tokenstash/`
+    
+    Stores preferences and rules that apply to **all projects**. Useful for personal coding style, global conventions, or cross-project preferences.
+  </Card>
+  <Card title="Project Stash" icon="folder">
+    **Location:** `<repo-root>/.tokenstash/`
+    
+    Stores project-specific context: architecture, decisions, rules, and file summaries. **Takes precedence** over global stash when conflicts occur.
+  </Card>
+</CardGroup>
+
+## Project Stash Structure
+
+A typical project stash looks like this:
+
+```
+<repo-root>/.tokenstash/
+├── architecture.md       # High-level codebase overview
+├── decisions.md          # Decision log (timestamped)
+├── rules.md              # Project-specific rules (CLAUDE.md on steroids)
+└── files/                # Per-file summaries
+    ├── src__index.ts.md
+    ├── src__lib__utils.ts.md
+    └── tests__unit__parser.test.ts.md
+```
+
+### Core Files
+
+<AccordionGroup>
+  <Accordion title="architecture.md">
+    **Purpose:** High-level codebase overview — structure, patterns, key components.
+    
+    **When updated:** Only when structural changes occur (new modules, changed patterns, new dependencies).
+    
+    **Format example:**
+    ```markdown
+    ## Architecture Overview
+    This is a TypeScript plugin for Claude Code that caches project context locally.
+    
+    ## Key Components
+    - `hooks/session-start`: Loads stash at session start
+    - `hooks/post-tool-use`: Triggers auto-updates after file edits
+    - `skills/`: Contains auto-update and save workflows
+    
+    ## Patterns
+    - Bash scripts for hooks (portable, minimal dependencies)
+    - JSON output for Claude Code hook integration
+    ```
+  </Accordion>
+  
+  <Accordion title="decisions.md">
+    **Purpose:** Decision log — what was decided each session and why.
+    
+    **When updated:** Every time you run `/stash-save`.
+    
+    **Format example:**
+    ```markdown
+    ## 2026-03-13 — Added auto-update hook
+    
+    **Decisions:**
+    - Trigger file summary updates after every Write/Edit tool call
+    - Use post-tool-use hook to avoid manual reminders
+    
+    **Files changed:** hooks/post-tool-use, skills/auto-update/SKILL.md
+    
+    ## 2026-03-10 — Initial plugin structure
+    
+    **Decisions:**
+    - Store file summaries in flattened path format (src/lib/utils.ts → src__lib__utils.ts.md)
+    - Separate global and project stashes for flexibility
+    
+    **Files changed:** hooks/session-start, plugin.yaml
+    ```
+  </Accordion>
+  
+  <Accordion title="rules.md">
+    **Purpose:** Project-specific rules and conventions. Think of it as **CLAUDE.md on steroids** — enforced at every session start.
+    
+    **When updated:** Manually, or via `/stash-save` if you add new conventions during a session.
+    
+    **Example content:**
+    ```markdown
+    - Use Python 3.11+ features (match/case, typing.Self)
+    - Prefer composition over inheritance
+    - All API endpoints must have OpenAPI docs
+    - Tests go in tests/ directory, mirroring src/ structure
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### File Summaries Directory
+
+The `files/` directory contains individual summaries for each file in your project:
+
+<Steps>
+  <Step title="Flattened Path Format">
+    File paths are flattened by replacing `/` with `__`:
+    
+    | Source File | Summary File |
+    |---|---|
+    | `src/index.ts` | `src__index.ts.md` |
+    | `src/lib/utils.ts` | `src__lib__utils.ts.md` |
+    | `tests/unit/parser.test.ts` | `tests__unit__parser.test.ts.md` |
+  </Step>
+  
+  <Step title="Summary Format">
+    Each summary follows a strict 3-5 line format:
+    
+    ```markdown
+    **Purpose:** One sentence — what this file does.
+    **Key exports:** List the main functions/classes/constants exported.
+    **Patterns:** Any notable patterns (e.g. "uses factory pattern", "singleton").
+    **Last updated:** YYYY-MM-DD
+    ```
+  </Step>
+</Steps>
+
+## Global Stash Structure
+
+The global stash is simpler:
+
+```
+~/.claude/tokenstash/
+├── preferences.md        # Personal coding preferences
+└── rules.md              # Global rules (applied to all projects)
+```
+
+<Info>
+**Global files are loaded first**, then project files override them. If both `~/.claude/tokenstash/rules.md` and `.tokenstash/rules.md` exist, the project rules take precedence.
+</Info>
+
+## Session Start Loading Order
+
+When Claude Code starts a session, the `session-start` hook loads files in this order:
+
+1. **Global stash** (`~/.claude/tokenstash/`)
+   - `preferences.md`
+   - `rules.md`
+
+2. **Project stash** (`<repo-root>/.tokenstash/`)
+   - `architecture.md`
+   - `decisions.md`
+   - `rules.md`
+   - All files in `files/` directory
+
+The final context is structured like:
+
+```markdown
+<tokenstash>
+## Global: preferences.md
+[content]
+
+## Global: rules.md
+[content]
+
+## Project: architecture.md
+[content]
+
+## Project: decisions.md
+[content]
+
+## Project: rules.md
+[content]
+
+## File Summaries (47 files cached)
+### src/index.ts
+[summary]
+
+### src/lib/utils.ts
+[summary]
+</tokenstash>
+```
+
+## Version Control Considerations
+
+The stash contains summaries, not code — it's safe to commit, but you may prefer to keep it local:
+
+<CodeGroup>
+```gitignore .gitignore (local only)
+.tokenstash/
+```
+
+```gitignore .gitignore (commit decisions, ignore summaries)
+.tokenstash/files/
+```
+</CodeGroup>
+
+<Tip>
+**Recommended approach:** Commit `architecture.md`, `decisions.md`, and `rules.md` to share context with your team, but add `.tokenstash/files/` to `.gitignore` to avoid noise from auto-generated summaries.
+</Tip>

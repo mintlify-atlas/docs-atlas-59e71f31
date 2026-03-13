@@ -1,0 +1,211 @@
+---
+title: Skills System
+description: How TokenStash skills orchestrate stash operations through Claude's skill system
+---
+
+TokenStash provides three skills that handle stash operations. Skills are invoked automatically by hooks or manually via slash commands.
+
+## Available Skills
+
+<CardGroup cols={3}>
+  <Card title="save" icon="floppy-disk">
+    Save session summary - decisions, architecture, file summaries
+  </Card>
+  <Card title="scan" icon="magnifying-glass">
+    Index the entire repository and build the stash
+  </Card>
+  <Card title="auto-update" icon="arrows-rotate">
+    Update a single file summary after editing
+  </Card>
+</CardGroup>
+
+## How Skills Are Invoked
+
+Slash commands trigger skills by calling `mcp-server-claude-code` with the skill name:
+
+```bash
+mcp-server-claude-code skill tokenstash:save
+```
+
+Each skill is defined in a `SKILL.md` file that Claude reads to understand what to do.
+
+## save Skill
+
+**Invoked by:** `/stash-save` command
+
+**Purpose:** Save a full session summary to the TokenStash
+
+### Workflow
+
+<Steps>
+  <Step title="Update decisions.md">
+    Append a timestamped entry to `.tokenstash/decisions.md`:
+    
+    ```markdown
+    ## YYYY-MM-DD — <one-line session summary>
+    
+    **Decisions:**
+    - [What was decided and why]
+    - [Another decision if applicable]
+    
+    **Files changed:** file1.ts, file2.py
+    ```
+  </Step>
+  
+  <Step title="Update architecture.md">
+    If the codebase structure changed this session (new modules, changed patterns, new dependencies), rewrite `.tokenstash/architecture.md`:
+    
+    ```markdown
+    ## Architecture Overview
+    [2-4 sentences describing the overall structure]
+    
+    ## Key Components
+    - `path/to/module`: what it does
+    - `path/to/module`: what it does
+    
+    ## Patterns
+    - [notable patterns used]
+    ```
+    
+    If nothing structural changed, leave it alone.
+  </Step>
+  
+  <Step title="Sweep file summaries">
+    For every file edited or read this session that doesn't have a summary in `.tokenstash/files/`, write one now using the auto-update format.
+  </Step>
+  
+  <Step title="Done">
+    Tell the user: **"TokenStash saved. Session summary written to .tokenstash/decisions.md."**
+  </Step>
+</Steps>
+
+## scan Skill
+
+**Invoked by:** `/stash-scan` or `/stash-scan --force` command
+
+**Purpose:** Scan the repository and build or refresh the full TokenStash index
+
+### Workflow
+
+<Steps>
+  <Step title="Find repo root">
+    Use `git rev-parse --show-toplevel` to find the repo root. All stash files go in `<repo-root>/.tokenstash/`.
+  </Step>
+  
+  <Step title="Discover files">
+    List all files in the repo, excluding:
+    - `.git/`, `node_modules/`, `.tokenstash/`, `dist/`, `build/`, `.next/`
+    - Binary files (images, fonts, compiled artifacts)
+    - Files over 500 lines (skip with a note)
+  </Step>
+  
+  <Step title="Summarize each file">
+    For each file not yet summarized (or all files if `--force`):
+    
+    - Read the file
+    - Write `.tokenstash/files/<flattened-path>.md` with:
+    
+    ```markdown
+    **Purpose:** One sentence.
+    **Key exports:** Main functions/classes/constants.
+    **Patterns:** Notable patterns.
+    **Last updated:** YYYY-MM-DD
+    ```
+    
+    The flattened path replaces `/` with `__` (e.g. `src/lib/utils.ts` → `src__lib__utils.md`).
+  </Step>
+  
+  <Step title="Write architecture.md">
+    Based on the full picture of the codebase, write `.tokenstash/architecture.md`:
+    
+    ```markdown
+    ## Architecture Overview
+    [2-4 sentences]
+    
+    ## Key Components
+    - `path/`: description
+    ...
+    
+    ## Patterns
+    - [patterns observed]
+    
+    ## Tech Stack
+    - [main technologies]
+    ```
+  </Step>
+  
+  <Step title="Report">
+    Tell the user how many files were summarized and where the stash was written.
+  </Step>
+</Steps>
+
+### Force Mode
+
+Passing `--force` makes the scan overwrite existing summaries. Use this to refresh the entire stash after major refactors.
+
+## auto-update Skill
+
+**Invoked by:** PostToolUse hook (automatically after file edits)
+
+**Purpose:** Update the TokenStash file summary for a file you just edited
+
+### Workflow
+
+<Steps>
+  <Step title="Find or create summary file">
+    Find or create `.tokenstash/files/<flattened-path>.md` where `<flattened-path>` replaces `/` with `__`.
+    
+    Example: `src/lib/utils.ts` → `src__lib__utils.md`
+  </Step>
+  
+  <Step title="Write summary">
+    Write a summary with this exact structure (3-5 lines max, no fluff):
+    
+    ```markdown
+    **Purpose:** One sentence — what this file does.
+    **Key exports:** List the main functions/classes/constants exported.
+    **Patterns:** Any notable patterns (e.g. "uses factory pattern", "singleton").
+    **Last updated:** YYYY-MM-DD
+    ```
+  </Step>
+  
+  <Step title="Handle edge cases">
+    - Keep it under 5 lines - future Claude needs to skip re-reading this file, not understand it fully
+    - Do not summarize boilerplate (imports, types only, empty files)
+    - If the file was deleted, delete its summary too
+    - Create `.tokenstash/files/` if it doesn't exist yet
+    - Do this silently — no need to tell the user unless there's an error
+  </Step>
+</Steps>
+
+## Skill Design Philosophy
+
+### Keep Summaries Terse
+
+File summaries are designed to be **skimmable**, not comprehensive. The goal is to let Claude know what a file does without re-reading it, not to understand it fully.
+
+**Good summary:**
+```markdown
+**Purpose:** Validates user input for authentication forms.
+**Key exports:** `validateEmail()`, `validatePassword()`, `ValidationError`
+**Patterns:** Uses regex for email validation, throws custom errors.
+**Last updated:** 2026-03-13
+```
+
+**Bad summary (too verbose):**
+```markdown
+**Purpose:** This file contains validation functions that are used throughout the application to ensure that user input meets our requirements. It includes email validation, password strength checking, and error handling.
+**Key exports:** The main exports are validateEmail which checks if an email is valid using a regular expression, validatePassword which ensures passwords are at least 8 characters and contain a mix of letters and numbers, and ValidationError which is a custom error class that extends the built-in Error class.
+**Patterns:** We use regular expressions for pattern matching, we throw custom errors for better error handling, and we follow functional programming principles.
+**Last updated:** 2026-03-13
+```
+
+### When to Update
+
+- **auto-update**: After every file edit (automatic)
+- **save**: At the end of a session (manual)
+- **scan**: When setting up a new project or after major refactors (manual)
+
+### Skill Composition
+
+The `save` skill calls `auto-update` internally for files that don't have summaries yet. This ensures the stash is always consistent.

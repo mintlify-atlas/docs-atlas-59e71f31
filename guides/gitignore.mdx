@@ -1,0 +1,138 @@
+---
+title: .gitignore Configuration
+description: Whether to commit .tokenstash/ and how to exclude it from version control
+---
+
+The `.tokenstash/` directory contains summaries of your project — architecture overviews, decision logs, and per-file summaries. It's safe to commit, but you may prefer to keep it local.
+
+## Should I Commit .tokenstash/?
+
+**It's up to you.** The stash contains summaries, not code — no secrets or sensitive data.
+
+<CardGroup cols={2}>
+  <Card title="Commit it" icon="check">
+    **When:**
+    - You want your team to share context
+    - Everyone starts sessions with the same understanding
+    - Decision logs are useful for onboarding
+
+    **Trade-off:**
+    - Stash updates create noise in git history
+    - Each developer's summaries may differ slightly
+  </Card>
+
+  <Card title="Keep it local" icon="eye-slash">
+    **When:**
+    - You work solo
+    - You prefer personal notes
+    - You want cleaner git history
+
+    **Trade-off:**
+    - Each developer builds their own stash (takes time on first session)
+    - No shared context across the team
+  </Card>
+</CardGroup>
+
+<Note>
+  **No wrong answer here.** The stash is designed to be safe either way — it never contains code, secrets, or sensitive information.
+</Note>
+
+---
+
+## How to Exclude .tokenstash/ from Git
+
+If you prefer to keep the stash local, add this line to your `.gitignore`:
+
+```text
+.tokenstash/
+```
+
+### Step-by-Step
+
+<Steps>
+  <Step title="Open (or create) .gitignore">
+    In your repository root, open `.gitignore` in your editor. If it doesn't exist, create it:
+
+    ```bash
+    touch .gitignore
+    ```
+  </Step>
+
+  <Step title="Add .tokenstash/ to .gitignore">
+    Add this line anywhere in the file:
+
+    ```text
+    .tokenstash/
+    ```
+
+    That's it — git will now ignore the entire directory.
+  </Step>
+
+  <Step title="Remove .tokenstash/ if already committed">
+    If you previously committed `.tokenstash/` and now want to exclude it:
+
+    ```bash
+    git rm -r --cached .tokenstash/
+    git commit -m "Remove .tokenstash/ from version control"
+    ```
+
+    The directory stays on your filesystem but is no longer tracked by git.
+  </Step>
+</Steps>
+
+<Tip>
+  After adding to `.gitignore`, verify it worked:
+
+  ```bash
+  git status
+  ```
+
+  You shouldn't see `.tokenstash/` listed as an untracked file.
+</Tip>
+
+---
+
+## What About the Global Stash?
+
+The global stash at `~/.claude/tokenstash/` is **never committed** — it lives in your home directory, outside any git repository.
+
+- Contains rules that apply to all your projects
+- Automatically injected into every session
+- No .gitignore needed (it's not in a repo)
+
+See the [Workflow guide](/guides/workflow) for how global and project stashes work together.
+
+---
+
+## .gitignore Template
+
+Here's a complete `.gitignore` example for a typical project using TokenStash:
+
+```text
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.next/
+
+# Environment
+.env
+.env.local
+
+# TokenStash (optional — remove this line to commit the stash)
+.tokenstash/
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+```
+
+<Note>
+  Remove the `.tokenstash/` line if you want to commit the stash for your team.
+</Note>

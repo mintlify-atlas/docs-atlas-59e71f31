@@ -1,0 +1,188 @@
+---
+title: Best Practices
+description: Tips and strategies for getting the most value from TokenStash
+---
+
+TokenStash is most effective when you understand when to use each feature and how to organize your stashed context.
+
+## When to Run Commands
+
+<Accordion title="When should I run /stash-scan?">
+  Run `/stash-scan` in these situations:
+
+  - **First time on a new project**: Build the initial stash so Claude starts the next session already knowing your codebase
+  - **After cloning a repo**: Index everything upfront instead of waiting for auto-updates to catch up
+  - **You want to index files you haven't touched**: Auto-updates only happen for files you edit — scan fills in the gaps
+
+  You **don't** need to run it repeatedly during development — auto-updates keep edited files current.
+</Accordion>
+
+<Accordion title="When should I use /stash-scan --force?">
+  Use `--force` when:
+
+  - You want to regenerate all summaries from scratch (e.g., after a major refactor)
+  - Existing summaries are outdated or incorrect
+  - You've changed how you want files summarized
+
+  **Warning**: This overwrites **all** existing summaries, including `architecture.md` and file summaries. Your `decisions.md` is preserved.
+</Accordion>
+
+<Accordion title="How often should I run /stash-save?">
+  Run `/stash-save` at the **end of a session** when:
+
+  - You made decisions worth documenting ("why we chose X over Y")
+  - You changed the project structure (new modules, moved files)
+  - You want to capture what you accomplished
+
+  **You don't need to run it after every change** — auto-updates handle file summaries for you. Think of `/stash-save` as closing out a work session, not a per-commit operation.
+</Accordion>
+
+<Accordion title="Should I commit .tokenstash/ to git?">
+  **It's safe either way.** The stash contains summaries, not code — no secrets or sensitive data.
+
+  - **Commit it** if you want your team to share context (everyone starts sessions with the same understanding)
+  - **Keep it local** if you prefer personal notes or work solo
+
+  See the [.gitignore guide](/guides/gitignore) for how to exclude it.
+</Accordion>
+
+---
+
+## Organizing Stash Content
+
+<Accordion title="What should go in rules.md vs. architecture.md?">
+  | File | Purpose | Examples |
+  |------|---------|----------|
+  | `rules.md` | Project-specific rules and conventions | "Always use named exports", "No default exports", "Use Zod for validation" |
+  | `architecture.md` | Structural overview of the codebase | "API routes live in src/routes/", "Database layer uses Prisma", "Frontend is React + Vite" |
+
+  **Think of it this way:**
+  - `rules.md` is **prescriptive** — "how we do things here"
+  - `architecture.md` is **descriptive** — "what exists and where"
+</Accordion>
+
+<Accordion title="What goes in decisions.md?">
+  `decisions.md` is a **decision log** — a chronological record of what was decided each session and why.
+
+  **Good entries:**
+  ```markdown
+  ## 2026-03-13 — Added user authentication
+
+  **Decisions:**
+  - Chose JWT over sessions for stateless auth (mobile app requirement)
+  - Used bcrypt for password hashing (cost factor 12)
+
+  **Files changed:** src/auth.ts, src/middleware/auth.ts
+  ```
+
+  **What to include:**
+  - **Why** you chose an approach (not just what you did)
+  - Tradeoffs considered
+  - Files changed (helps future you trace decisions to code)
+
+  **What to skip:**
+  - Routine bug fixes with no decision-making
+  - "Fixed typo in X" — no context value
+</Accordion>
+
+<Accordion title="How detailed should file summaries be?">
+  **Keep them short** — 3-5 lines max. The goal is to help future Claude skip re-reading files, not understand them fully.
+
+  **Good summary:**
+  ```markdown
+  **Purpose:** Authentication middleware for API routes.
+  **Key exports:** `authMiddleware`, `requireRole`
+  **Patterns:** Uses JWT verification, role-based access control
+  **Last updated:** 2026-03-13
+  ```
+
+  **Too verbose:**
+  ```markdown
+  **Purpose:** This file contains middleware functions for authentication...
+  [5 more paragraphs explaining every function]
+  ```
+
+  Auto-updates handle this for you, but if you manually edit summaries, err on the side of brevity.
+</Accordion>
+
+---
+
+## Stash Scope: Global vs. Project
+
+<Tip>
+  TokenStash supports two stash locations:
+
+  | Scope | Path | Priority |
+  |-------|------|----------|
+  | **Global** | `~/.claude/tokenstash/` | Base (applies to all projects) |
+  | **Project** | `<repo-root>/.tokenstash/` | Override (takes precedence) |
+</Tip>
+
+### When to Use Global Stash
+
+Put rules in `~/.claude/tokenstash/rules.md` that apply to **all your projects**:
+
+- "Always use TypeScript strict mode"
+- "Prefer functional components in React"
+- "Write tests for all exported functions"
+
+Claude reads both global and project stashes — project settings override global ones.
+
+### When to Use Project Stash
+
+Everything else goes in `<repo-root>/.tokenstash/`:
+
+- Project-specific architecture
+- Decision logs
+- File summaries
+- Project-specific rules (overrides global)
+
+---
+
+## Performance Tips
+
+<Accordion title="What if /stash-scan takes too long?">
+  The scan skips:
+  - Files over 500 lines (noted but not summarized)
+  - Common build/dependency directories
+
+  If it's still slow:
+  1. Let auto-updates handle files as you edit them
+  2. Only scan once per project (not every session)
+  3. Use `/stash-scan` without `--force` — it skips already-summarized files
+</Accordion>
+
+<Accordion title="Does the stash slow down Claude?">
+  No — the stash is injected at the start of the session, not on every request. File summaries are designed to be token-efficient (3-5 lines each).
+
+  A typical project stash adds a few hundred tokens to the context — far less than re-reading files every session.
+</Accordion>
+
+---
+
+## Troubleshooting
+
+<Accordion title="Claude isn't using the stash">
+  Check:
+  1. Is `.tokenstash/` in your repo root? (Find it with `git rev-parse --show-toplevel`)
+  2. Did you start a **new session** after installing the plugin? The stash is injected at session start.
+  3. Run `/stash-scan` to build the stash if it's empty
+</Accordion>
+
+<Accordion title="Summaries are outdated">
+  Auto-updates only trigger for files you **edit**. To refresh everything:
+
+  ```bash
+  /stash-scan --force
+  ```
+
+  This regenerates all summaries from current file contents.
+</Accordion>
+
+<Accordion title="I want to reset everything">
+  ```bash
+  /stash-clear
+  ```
+
+  This wipes the project stash (asks for confirmation). Then run `/stash-scan` to rebuild from scratch.
+</Accordion>

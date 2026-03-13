@@ -1,0 +1,51 @@
+---
+title: "Commands"
+description: "All TokenStash slash commands for managing your project context cache"
+---
+
+TokenStash provides slash commands to control when and how your project context is saved, scanned, and cleared.
+
+## Available Commands
+
+<CardGroup cols={2}>
+  <Card title="/stash-save" icon="floppy-disk" href="/commands/stash-save">
+    Save session summary — decisions, architecture, and file summaries
+  </Card>
+  
+  <Card title="/stash-scan" icon="radar" href="/commands/stash-scan">
+    Index the whole repo and build the full TokenStash
+  </Card>
+  
+  <Card title="/stash-clear" icon="trash" href="/commands/stash-clear">
+    Wipe the project stash (asks for confirmation)
+  </Card>
+</CardGroup>
+
+## Quick Reference
+
+| Command | What it does |
+|---|---|
+| `/stash-save` | Save session summary — decisions, architecture, file summaries |
+| `/stash-scan` | Index the whole repo on demand |
+| `/stash-scan --force` | Re-scan everything, overwrite existing summaries |
+| `/stash-clear` | Wipe the project stash (asks for confirmation) |
+
+## How the stash builds up
+
+- **Auto:** After every file edit, Claude updates that file's summary silently
+- **Manual:** Run `/stash-save` at the end of a session to save decisions and architecture
+- **Full index:** Run `/stash-scan` once on a new project to summarize everything upfront
+
+## When to use each command
+
+<Note>
+**End of session?** Use `/stash-save` to capture what you decided and why.
+</Note>
+
+<Note>
+**New project?** Use `/stash-scan` to build the initial index of your entire codebase.
+</Note>
+
+<Note>
+**Need a fresh start?** Use `/stash-clear` to wipe the stash and rebuild from scratch.
+</Note>

@@ -1,0 +1,122 @@
+---
+title: Installation
+description: Install the TokenStash plugin for Claude Code in under 2 minutes
+---
+
+# Installation
+
+TokenStash is a Claude Code plugin. You'll install it using the `/plugin` command system.
+
+## Prerequisites
+
+<Note>
+You need **Claude Code** (formerly Claude Dev) installed and running. TokenStash is a plugin for Claude Code, not standalone software.
+</Note>
+
+TokenStash works with any project, but it's most useful for:
+- Projects with complex architecture
+- Multi-session development workflows
+- Team projects where context sharing matters
+- Large codebases with many files
+
+## Installation Steps
+
+<Steps>
+  <Step title="Register the TokenStash marketplace">
+    In your Claude Code session, run:
+
+    ```bash
+    /plugin marketplace add abhinavdubeyad9/tokenstash
+    ```
+
+    This registers the TokenStash plugin marketplace so Claude can find and install the plugin.
+  </Step>
+
+  <Step title="Install the plugin">
+    Now install TokenStash:
+
+    ```bash
+    /plugin install tokenstash@tokenstash
+    ```
+
+    Claude will download and activate the plugin. You should see a confirmation message.
+  </Step>
+
+  <Step title="Restart your Claude Code session">
+    Close and reopen Claude Code (or start a new session) to ensure the plugin is fully loaded.
+
+    <Note>
+    TokenStash automatically injects your stash at the start of every session. You don't need to manually load it.
+    </Note>
+  </Step>
+
+  <Step title="Verify installation">
+    Check that the plugin commands are available:
+
+    ```bash
+    /stash-scan --help
+    ```
+
+    If you see command help or the command executes, TokenStash is installed correctly.
+  </Step>
+</Steps>
+
+## What Gets Installed
+
+TokenStash adds four new commands to Claude Code:
+
+| Command | Description |
+|---------|-------------|
+| `/stash-scan` | Scan the repo and build the full TokenStash index |
+| `/stash-save` | Save a session summary (decisions, architecture, file summaries) |
+| `/stash-clear` | Wipe the project stash (asks for confirmation) |
+| `/stash-scan --force` | Re-scan everything and overwrite existing summaries |
+
+## Configuration
+
+<Note>
+TokenStash works out of the box with **zero configuration**. The sections below are optional.
+</Note>
+
+### Add to .gitignore (Optional)
+
+The stash contains summaries, not code — it's safe to commit. However, if you prefer to keep it local:
+
+```bash
+.tokenstash/
+```
+
+Add this line to your `.gitignore` file.
+
+### Global Stash (Optional)
+
+You can create a global stash at `~/.claude/tokenstash/` that applies to all your projects. This is useful for:
+
+- Personal coding preferences
+- Common patterns you use across projects
+- General rules you want Claude to follow everywhere
+
+Project stashes always take precedence over the global stash.
+
+## Troubleshooting
+
+<Warning>
+If the `/stash-scan` command isn't recognized, make sure you've restarted your Claude Code session after installation.
+</Warning>
+
+### Plugin not found
+
+If the marketplace registration fails, check:
+- Your internet connection
+- That you typed the marketplace path correctly: `abhinavdubeyad9/tokenstash`
+
+### Commands not working
+
+If commands run but don't seem to work:
+- Check that you're in a git repository root
+- Verify you have write permissions in your project directory
+- Look for error messages in the Claude Code output
+
+## Next Steps
+
+Now that TokenStash is installed, head to the [Quick Start](/quickstart) guide to build your first stash and see it in action.

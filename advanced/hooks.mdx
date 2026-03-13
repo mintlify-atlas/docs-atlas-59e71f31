@@ -1,0 +1,164 @@
+---
+title: Hook System
+description: How TokenStash hooks inject context automatically at session start and after file edits
+---
+
+TokenStash uses Claude Code's hook system to automatically inject cached context and trigger updates without manual intervention.
+
+## Available Hooks
+
+TokenStash implements two hooks:
+
+<CardGroup cols={2}>
+  <Card title="SessionStart" icon="play">
+    Injects cached context at the start of every Claude session
+  </Card>
+  <Card title="PostToolUse" icon="pen">
+    Reminds Claude to update file summaries after edits
+  </Card>
+</CardGroup>
+
+## Hook Configuration
+
+Hooks are defined in `hooks/hooks.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' session-start",
+            "async": false
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd' post-tool-use",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## SessionStart Hook
+
+**Triggers:** On session startup, resume, clear, or compact
+
+**Runs:** Synchronously (blocks until complete)
+
+**Purpose:** Loads all stash files and injects them into Claude's context
+
+### What It Does
+
+1. **Finds stash locations** - Checks for global stash (`~/.claude/tokenstash/`) and project stash (`<repo>/.tokenstash/`)
+2. **Loads global files** - Reads `preferences.md` and `rules.md` from global stash
+3. **Loads project files** - Reads `architecture.md`, `decisions.md`, and `rules.md` from project stash
+4. **Loads file summaries** - Reads all `.md` files from `.tokenstash/files/`
+5. **Injects context** - Wraps everything in `<tokenstash>` tags and adds to Claude's context
+
+### Implementation Snippet
+
+From `hooks/session-start`:
+
+```bash
+# Load global stash
+if [ -d "$GLOBAL_STASH_DIR" ]; then
+    for f in preferences.md rules.md; do
+        fpath="$GLOBAL_STASH_DIR/$f"
+        if [ -f "$fpath" ]; then
+            context+="## Global: $f\n$(cat "$fpath")\n\n"
+        fi
+    done
+fi
+
+# Load project stash (takes priority)
+if [ -d "$PROJECT_STASH_DIR" ]; then
+    for f in architecture.md decisions.md rules.md; do
+        fpath="$PROJECT_STASH_DIR/$f"
+        if [ -f "$fpath" ]; then
+            context+="## Project: $f\n$(cat "$fpath")\n\n"
+        fi
+    done
+    # Load file summaries
+    if [ -d "$PROJECT_STASH_DIR/files" ]; then
+        for f in "$PROJECT_STASH_DIR/files/"*.md; do
+            [ -f "$f" ] || continue
+            fname=$(basename "$f" .md | tr '__' '/')
+            context+="### $fname\n$(cat "$f")\n\n"
+        done
+    fi
+fi
+```
+
+If no stash is found, it displays: **"TokenStash: No stash found. Run /stash-scan to index this project."**
+
+## PostToolUse Hook
+
+**Triggers:** After Write or Edit tool calls
+
+**Runs:** Asynchronously (non-blocking)
+
+**Purpose:** Reminds Claude to update the file summary after editing
+
+### What It Does
+
+1. **Filters tool calls** - Only acts on `Write` or `Edit` tools with a `file_path` parameter
+2. **Extracts file path** - Parses the tool input JSON to get the edited file path
+3. **Injects reminder** - Adds a `<tokenstash-reminder>` tag telling Claude to update the summary
+
+### Implementation Snippet
+
+From `hooks/post-tool-use`:
+
+```bash
+# Read JSON payload from stdin
+input=$(cat)
+
+# Extract tool name and file path
+tool_name=$(echo "$input" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_name',''))" 2>/dev/null || echo "")
+file_path=$(echo "$input" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('file_path',''))" 2>/dev/null || echo "")
+
+# Only act on Write and Edit tool calls with a file path
+if [[ "$tool_name" != "Write" && "$tool_name" != "Edit" ]] || [ -z "$file_path" ]; then
+    exit 0
+fi
+
+filename=$(basename "$file_path")
+reminder="<tokenstash-reminder>You just edited \`${file_path}\`. Use the tokenstash:auto-update skill to update its summary in .tokenstash/files/ now.</tokenstash-reminder>"
+```
+
+Claude receives the reminder and automatically invokes the `tokenstash:auto-update` skill to update the file summary.
+
+## Why Async vs Sync?
+
+- **SessionStart is synchronous** - Must complete before Claude starts responding, ensuring context is loaded
+- **PostToolUse is asynchronous** - Runs in the background, allowing Claude to continue without blocking
+
+## Hook Output Format
+
+Both hooks return JSON with this structure:
+
+```json
+{
+  "additional_context": "<escaped context string>",
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "<escaped context string>"
+  }
+}
+```
+
+The context is wrapped in `<tokenstash>` or `<tokenstash-reminder>` tags for easy parsing.

@@ -1,0 +1,82 @@
+---
+title: Introduction
+description: Cache your project context locally so Claude starts every session already knowing your codebase
+---
+
+# Introduction to TokenStash
+
+TokenStash is a Claude Code plugin that caches project context locally — so Claude starts every session already knowing your codebase. No re-reading files. No re-explaining architecture. Just start coding.
+
+## The Problem
+
+Every time you start a new Claude Code session, Claude has zero context about your project. You need to:
+
+- Re-explain your architecture
+- Point Claude to the right files
+- Repeat decisions you've already made
+- Wait for Claude to read through your codebase again
+
+This wastes time and tokens, especially on larger projects where you're working across multiple sessions.
+
+## The Solution
+
+TokenStash saves summaries of your project to `.tokenstash/` as you work. At the start of every session, the stash is automatically injected into Claude's context.
+
+<Note>
+The stash contains **summaries, not code** — it's safe to commit, but you can also add `.tokenstash/` to your `.gitignore` if you prefer to keep it local.
+</Note>
+
+## What Gets Stashed
+
+TokenStash maintains four types of files in your `.tokenstash/` directory:
+
+<CardGroup cols={2}>
+  <Card title="architecture.md" icon="building">
+    High-level codebase overview — structure, patterns, and key components
+  </Card>
+  <Card title="decisions.md" icon="list-check">
+    Decision log — what was decided each session and why
+  </Card>
+  <Card title="rules.md" icon="book">
+    Project-specific rules (think CLAUDE.md on steroids)
+  </Card>
+  <Card title="files/" icon="folder">
+    Per-file summaries (3-5 lines each) for every file in your project
+  </Card>
+</CardGroup>
+
+## How It Builds Up
+
+TokenStash builds your context cache in three ways:
+
+### Automatic Updates
+After every file edit, Claude automatically updates that file's summary silently in the background. You don't need to do anything.
+
+### Manual Session Saves
+Run `/stash-save` at the end of a session to save decisions and architecture updates. This captures what you learned and decided during the session.
+
+### Full Repository Scans
+Run `/stash-scan` once on a new project to summarize everything upfront. This gives Claude immediate context about your entire codebase.
+
+## Stash Locations
+
+TokenStash supports two levels of stash:
+
+| Scope | Path | Priority |
+|-------|------|----------|
+| **Global** | `~/.claude/tokenstash/` | Base (applies to all projects) |
+| **Project** | `<repo-root>/.tokenstash/` | Override (takes precedence) |
+
+Project stashes override global stashes. Use the global stash for your personal preferences and coding patterns, and project stashes for project-specific context.
+
+## Key Benefits
+
+- **Faster sessions**: Claude starts with full context immediately
+- **Better consistency**: Decisions and patterns persist across sessions
+- **Token efficiency**: No need to re-read files every session
+- **Zero maintenance**: Automatic updates as you work
+- **Portable knowledge**: Commit the stash to share context with your team
+
+## Ready to Get Started?
+
+Head to the [Installation](/installation) guide to set up TokenStash, or jump straight to the [Quick Start](/quickstart) to build your first stash.

@@ -1,0 +1,231 @@
+---
+title: Global vs Project Stash
+description: Understanding stash scopes, priority rules, and when to use global vs project stashes
+---
+
+TokenStash supports two stash locations: **global** and **project**. Understanding when to use each helps you organize context effectively.
+
+## Stash Locations
+
+<CardGroup cols={2}>
+  <Card title="Global Stash" icon="globe">
+    **Path:** `~/.claude/tokenstash/`
+    
+    Applies to all projects. Use for personal preferences and universal rules.
+  </Card>
+  <Card title="Project Stash" icon="folder-tree">
+    **Path:** `<repo-root>/.tokenstash/`
+    
+    Applies to a specific repository. Use for project-specific architecture, decisions, and file summaries.
+  </Card>
+</CardGroup>
+
+## Priority Rules
+
+When both stashes exist, **project stash takes priority** over global stash:
+
+```
+Project stash > Global stash
+```
+
+### What This Means
+
+- If both global and project have `rules.md`, **project rules override global rules**
+- Global stash is loaded first, then project stash appends/overrides
+- File summaries only exist in project stash (global stash doesn't track files)
+
+### Loading Order
+
+From the SessionStart hook:
+
+```bash
+# 1. Load global stash first
+if [ -d "$GLOBAL_STASH_DIR" ]; then
+    for f in preferences.md rules.md; do
+        fpath="$GLOBAL_STASH_DIR/$f"
+        if [ -f "$fpath" ]; then
+            context+="## Global: $f\n$(cat "$fpath")\n\n"
+        fi
+    done
+fi
+
+# 2. Load project stash (takes priority)
+if [ -d "$PROJECT_STASH_DIR" ]; then
+    for f in architecture.md decisions.md rules.md; do
+        fpath="$PROJECT_STASH_DIR/$f"
+        if [ -f "$fpath" ]; then
+            context+="## Project: $f\n$(cat "$fpath")\n\n"
+        fi
+    done
+    # 3. Load file summaries
+    if [ -d "$PROJECT_STASH_DIR/files" ]; then
+        for f in "$PROJECT_STASH_DIR/files/"*.md; do
+            [ -f "$f" ] || continue
+            fname=$(basename "$f" .md | tr '__' '/')
+            context+="### $fname\n$(cat "$f")\n\n"
+        done
+    fi
+fi
+```
+
+## File Types by Scope
+
+| File | Global | Project | Purpose |
+|------|--------|---------|----------|
+| `preferences.md` | ✅ | ❌ | Personal coding preferences (style, editor settings, workflow) |
+| `rules.md` | ✅ | ✅ | Coding rules (global standards vs project-specific) |
+| `architecture.md` | ❌ | ✅ | Project structure, patterns, key components |
+| `decisions.md` | ❌ | ✅ | Decision log - what was decided each session and why |
+| `files/` | ❌ | ✅ | Per-file summaries (3-5 lines each) |
+
+## When to Use Global Stash
+
+Use the global stash for **personal preferences and universal rules** that apply across all projects:
+
+### Example: `~/.claude/tokenstash/preferences.md`
+
+```markdown
+## Code Style Preferences
+- Prefer functional programming over classes
+- Use TypeScript strict mode
+- Write tests for all public APIs
+
+## Communication Style
+- Be concise - no fluff
+- Explain "why" not just "what"
+- Show code examples for complex concepts
+
+## Workflow
+- Always run tests before committing
+- Use conventional commit messages
+- Keep PRs small (< 300 lines)
+```
+
+### Example: `~/.claude/tokenstash/rules.md`
+
+```markdown
+## Universal Coding Rules
+- Never commit secrets or API keys
+- Always handle errors explicitly
+- Use descriptive variable names (no single-letter names except loop counters)
+- Write comments for complex logic only
+```
+
+## When to Use Project Stash
+
+Use the project stash for **project-specific context** that other developers (or future Claude sessions) need:
+
+### Example: `.tokenstash/architecture.md`
+
+```markdown
+## Architecture Overview
+Next.js app with API routes, Prisma ORM, and PostgreSQL. Uses server actions for mutations and React Query for client-side state.
+
+## Key Components
+- `app/`: Next.js app directory with routes and layouts
+- `lib/db/`: Prisma client and database utilities
+- `lib/actions/`: Server actions for mutations
+- `components/`: React components (UI + business logic)
+
+## Patterns
+- Server actions return `{success, data?, error?}` objects
+- All forms use React Hook Form + Zod validation
+- Database queries use Prisma with explicit error handling
+```
+
+### Example: `.tokenstash/decisions.md`
+
+```markdown
+## 2026-03-13 — Add user authentication
+
+**Decisions:**
+- Use NextAuth.js with Google OAuth provider
+- Store sessions in PostgreSQL (not JWT) for better security
+- Add `userId` foreign key to all user-owned tables
+
+**Files changed:** app/api/auth/[...nextauth]/route.ts, lib/auth.ts, prisma/schema.prisma
+
+## 2026-03-10 — Migrate to Prisma ORM
+
+**Decisions:**
+- Replace raw SQL with Prisma for type safety
+- Use Prisma Migrate for schema management
+- Keep existing PostgreSQL database (no data migration needed)
+
+**Files changed:** lib/db/client.ts, prisma/schema.prisma, package.json
+```
+
+### Example: `.tokenstash/rules.md`
+
+```markdown
+## Project-Specific Rules
+- Always use server actions for mutations (never API routes)
+- Never use `any` type - use `unknown` and narrow with type guards
+- All database queries must use transactions for multi-step operations
+- Keep API responses under 1MB (paginate large datasets)
+```
+
+## Combining Global and Project Stashes
+
+### Scenario: Override Global Rule
+
+Global stash says "prefer functional programming", but this project uses classes heavily.
+
+**Global:** `~/.claude/tokenstash/rules.md`
+```markdown
+- Prefer functional programming over classes
+```
+
+**Project:** `.tokenstash/rules.md`
+```markdown
+## Architecture Rules
+- This project uses class-based architecture (OOP)
+- All services extend BaseService class
+- Use dependency injection for service composition
+```
+
+When loaded, Claude sees both but **prioritizes project rules** because they're more specific.
+
+## Should You Commit `.tokenstash/`?
+
+It depends on your team's workflow:
+
+### Commit if:
+- You want the stash to be shared across the team
+- The stash contains architectural decisions that help onboard new developers
+- You're okay with the decision log being public (if the repo is public)
+
+### Don't commit if:
+- The stash contains personal notes or preferences
+- You prefer each developer to build their own stash
+- You want to keep the decision log private
+
+### Best Practice
+
+Commit `architecture.md` and `rules.md` (useful for the team), but add `decisions.md` and `files/` to `.gitignore` (personal/noisy):
+
+```gitignore
+# .gitignore
+.tokenstash/decisions.md
+.tokenstash/files/
+```
+
+Or ignore the entire stash:
+
+```gitignore
+.tokenstash/
+```
+
+## Finding Your Stashes
+
+Check which stashes exist:
+
+```bash
+# Global stash
+ls -la ~/.claude/tokenstash/
+
+# Project stash (from repo root)
+ls -la .tokenstash/
+```
+
+If no stash exists, run `/stash-scan` to create one.

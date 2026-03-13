@@ -1,0 +1,189 @@
+---
+title: "/stash-clear"
+description: "Wipe the TokenStash for the current project — asks for confirmation first"
+---
+
+## Overview
+
+The `/stash-clear` command deletes the entire `.tokenstash/` directory for the current project. Use this when you want to start fresh or when the stash has become inaccurate.
+
+```bash
+/stash-clear
+```
+
+<Warning>
+This command permanently deletes all TokenStash data for the current project, including decisions, architecture, and file summaries. Make sure you want to do this before confirming.
+</Warning>
+
+## What it does
+
+When you run `/stash-clear`, Claude will:
+
+### 1. Ask for confirmation
+
+Before deleting anything, Claude prompts:
+
+```
+Are you sure you want to wipe .tokenstash/ for this project? Type YES to confirm.
+```
+
+<Note>
+You must type **exactly** `YES` (all caps) to confirm. Any other response cancels the operation.
+</Note>
+
+### 2. Delete the stash (if confirmed)
+
+If you confirm with `YES`, Claude:
+- Finds the current git repo root
+- Deletes the entire `.tokenstash/` directory
+- Confirms: `TokenStash cleared. Run /stash-scan to rebuild.`
+
+### 3. Cancel (if not confirmed)
+
+If you respond with anything other than `YES`, Claude:
+- Does nothing
+- Confirms: `Stash was not cleared.`
+
+## What gets deleted
+
+The entire `.tokenstash/` directory is removed, including:
+
+| File | What you lose |
+|---|---|
+| `decisions.md` | Complete decision log across all sessions |
+| `architecture.md` | High-level codebase overview and patterns |
+| `rules.md` | Project-specific rules and conventions |
+| `files/` directory | All per-file summaries |
+
+<Warning>
+Once deleted, this data cannot be recovered unless you have it committed to version control or backed up elsewhere.
+</Warning>
+
+## When to use
+
+<CardGroup cols={2}>
+  <Card title="Stale context" icon="clock">
+    When summaries no longer reflect the current codebase
+  </Card>
+  
+  <Card title="Major refactor" icon="wand-magic-sparkles">
+    After a complete rewrite or restructure
+  </Card>
+  
+  <Card title="Fresh start" icon="sparkles">
+    When you want to rebuild the stash from scratch
+  </Card>
+  
+  <Card title="Testing" icon="flask">
+    When experimenting with different stash configurations
+  </Card>
+</CardGroup>
+
+## Confirmation workflow
+
+The command requires explicit confirmation to prevent accidental deletion:
+
+```bash
+# You run the command
+/stash-clear
+
+# Claude asks for confirmation
+"Are you sure you want to wipe .tokenstash/ for this project? Type YES to confirm."
+
+# You must type exactly:
+YES
+
+# Claude confirms deletion
+"TokenStash cleared. Run /stash-scan to rebuild."
+```
+
+### Invalid confirmations
+
+These responses will **not** clear the stash:
+- `yes` (lowercase)
+- `y`
+- `ok`
+- `confirm`
+- Any other response
+
+Only `YES` (all caps) triggers the deletion.
+
+## After clearing
+
+Once the stash is cleared, you have a few options:
+
+### Rebuild with /stash-scan
+
+```bash
+/stash-scan
+```
+
+This will index your entire repository and rebuild the stash from scratch.
+
+### Let it rebuild naturally
+
+As you work:
+- File summaries will be auto-saved after each edit
+- Run `/stash-save` at the end of sessions to capture decisions
+- The stash will rebuild organically over time
+
+### Start with a clean slate
+
+You can also leave the stash empty and let it build up naturally as you work on specific files.
+
+<Tip>
+If you're unsure whether to clear the stash, consider using `/stash-scan --force` instead. This regenerates all summaries without losing your decision log.
+</Tip>
+
+## Example session
+
+```bash
+# User runs the command
+/stash-clear
+
+# Claude prompts for confirmation
+"Are you sure you want to wipe .tokenstash/ for this project? Type YES to confirm."
+
+# User confirms
+YES
+
+# Claude deletes and confirms
+"TokenStash cleared. Run /stash-scan to rebuild."
+
+# User rebuilds the index
+/stash-scan
+
+# Claude scans the repo
+"Scanned 42 files. TokenStash written to /path/to/repo/.tokenstash/"
+```
+
+## Alternatives to clearing
+
+Before clearing the entire stash, consider these alternatives:
+
+| Instead of clearing | Try this |
+|---|---|
+| Outdated file summaries | `/stash-scan --force` to regenerate summaries |
+| Bad architecture.md | Manually edit `.tokenstash/architecture.md` |
+| One wrong file summary | Edit or delete that specific file in `.tokenstash/files/` |
+| Want to preserve decisions | Backup `decisions.md` before clearing |
+
+## Safety notes
+
+<Note>
+**Project-specific:** `/stash-clear` only affects the current project's stash. Your global stash at `~/.claude/tokenstash/` is never touched.
+</Note>
+
+<Note>
+**Git-aware:** The command finds the git repo root automatically, so it doesn't matter which subdirectory you're in when you run it.
+</Note>
+
+<Warning>
+**No undo:** Once confirmed, the deletion is immediate and permanent. Consider committing your `.tokenstash/` directory to version control if you want to preserve history.
+</Warning>
+
+## Related commands
+
+- [/stash-scan](/commands/stash-scan) — Rebuild the stash after clearing
+- [/stash-scan --force](/commands/stash-scan#force-re-scan) — Regenerate summaries without losing decisions
+- [/stash-save](/commands/stash-save) — Save decisions after rebuilding

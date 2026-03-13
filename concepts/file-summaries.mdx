@@ -1,0 +1,205 @@
+---
+title: "File Summaries"
+description: "Learn how TokenStash creates and maintains concise per-file summaries"
+---
+
+File summaries are the core of TokenStash's efficiency. Instead of re-reading entire files every session, Claude loads 3-5 line summaries that capture the essential information needed to work with your codebase.
+
+## Summary Format
+
+Every file summary follows a strict 4-part structure:
+
+```markdown
+**Purpose:** One sentence — what this file does.
+**Key exports:** List the main functions/classes/constants exported.
+**Patterns:** Any notable patterns (e.g. "uses factory pattern", "singleton").
+**Last updated:** YYYY-MM-DD
+```
+
+<Info>
+**Keep it under 5 lines.** Future Claude needs to skip re-reading this file, not understand it fully. Summaries are for **context**, not comprehension.
+</Info>
+
+## Real Examples
+
+<CodeGroup>
+```markdown hooks/session-start
+**Purpose:** Bash hook that loads TokenStash context at the start of every Claude Code session.
+**Key exports:** JSON output with `additional_context` field containing stash content.
+**Patterns:** Loads global stash first, then project stash (takes priority); flattens file summaries from .tokenstash/files/.
+**Last updated:** 2026-03-13
+```
+
+```markdown skills/auto-update/SKILL.md
+**Purpose:** Skill that updates file summaries in .tokenstash/files/ after edits.
+**Key exports:** Instructions for writing 4-part summaries (Purpose, Key exports, Patterns, Last updated).
+**Patterns:** Flattened path format (src/lib/utils.ts → src__lib__utils.ts.md); silently updates without user notification.
+**Last updated:** 2026-03-13
+```
+
+```markdown src/lib/utils.ts (example)
+**Purpose:** Utility functions for string manipulation and path handling.
+**Key exports:** `flattenPath()`, `escapeJson()`, `parseConfig()`.
+**Patterns:** Pure functions, no side effects; uses type guards for runtime safety.
+**Last updated:** 2026-03-12
+```
+</CodeGroup>
+
+## When Summaries Are Created
+
+File summaries are created or updated in three scenarios:
+
+<CardGroup cols={3}>
+  <Card title="Auto-Update" icon="bolt">
+    **Trigger:** After every `Write` or `Edit` tool call
+    
+    **How:** The `post-tool-use` hook detects file edits and invokes the `auto-update` skill
+    
+    **Behavior:** Silent — no user notification unless there's an error
+  </Card>
+  
+  <Card title="Manual Save" icon="floppy-disk">
+    **Trigger:** When you run `/stash-save`
+    
+    **How:** The `save` skill sweeps all files edited/read this session
+    
+    **Behavior:** Only creates summaries for files without current summaries
+  </Card>
+  
+  <Card title="Full Scan" icon="folder-tree">
+    **Trigger:** When you run `/stash-scan`
+    
+    **How:** Indexes the entire repository and creates summaries for all files
+    
+    **Behavior:** Use `--force` to re-scan and overwrite existing summaries
+  </Card>
+</CardGroup>
+
+## Auto-Update Workflow
+
+Here's how automatic updates work:
+
+<Steps>
+  <Step title="File Edit Detected">
+    You use `Write` or `Edit` tool to modify a file.
+    
+    ```typescript
+    // You edit src/lib/parser.ts
+    ```
+  </Step>
+  
+  <Step title="Hook Triggers">
+    The `post-tool-use` hook intercepts the tool call and extracts the file path:
+    
+    ```bash
+    # post-tool-use hook
+    tool_name=$(echo "$input" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_name',''))")
+    file_path=$(echo "$input" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('file_path',''))")
+    
+    # Only act on Write and Edit
+    if [[ "$tool_name" != "Write" && "$tool_name" != "Edit" ]] || [ -z "$file_path" ]; then
+        exit 0
+    fi
+    ```
+  </Step>
+  
+  <Step title="Reminder Injected">
+    The hook injects a reminder into Claude's context:
+    
+    ```xml
+    <tokenstash-reminder>
+    You just edited `src/lib/parser.ts`. 
+    Use the tokenstash:auto-update skill to update its summary in .tokenstash/files/ now.
+    </tokenstash-reminder>
+    ```
+  </Step>
+  
+  <Step title="Summary Updated">
+    Claude invokes the `auto-update` skill and writes to `.tokenstash/files/src__lib__parser.ts.md`:
+    
+    ```markdown
+    **Purpose:** Parses configuration files and validates schema.
+    **Key exports:** `parseConfig()`, `validateSchema()`, `ConfigError` class.
+    **Patterns:** Throws ConfigError on invalid input; uses Zod for runtime validation.
+    **Last updated:** 2026-03-13
+    ```
+  </Step>
+</Steps>
+
+## What NOT to Summarize
+
+The `auto-update` skill explicitly excludes certain files:
+
+<Warning>
+**Do not summarize:**
+- Boilerplate files (only imports, no logic)
+- Type-only files (e.g. `types.ts` with only TypeScript interfaces)
+- Empty files or files with no exports
+- Configuration files that are self-explanatory (e.g. `tsconfig.json`)
+</Warning>
+
+If a file was deleted, delete its summary too.
+
+## Flattened Path Format
+
+File summaries use a flattened path format to avoid nested directories:
+
+| Source File | Summary Location |
+|---|---|
+| `src/index.ts` | `.tokenstash/files/src__index.ts.md` |
+| `src/lib/utils.ts` | `.tokenstash/files/src__lib__utils.ts.md` |
+| `tests/unit/parser.test.ts` | `.tokenstash/files/tests__unit__parser.test.ts.md` |
+
+**Why flatten?** Simplifies directory structure and makes it easier to browse summaries without recreating the entire project tree.
+
+## Reading Summaries at Session Start
+
+The `session-start` hook loads all file summaries and injects them into context:
+
+```bash
+# Load file summaries
+if [ -d "$PROJECT_STASH_DIR/files" ]; then
+    file_count=$(find "$PROJECT_STASH_DIR/files" -name "*.md" | wc -l | tr -d ' ')
+    if [ "$file_count" -gt 0 ]; then
+        context+="## File Summaries ($file_count files cached)\n"
+        for f in "$PROJECT_STASH_DIR/files/"*.md; do
+            [ -f "$f" ] || continue
+            fname=$(basename "$f" .md | tr '__' '/')  # Unflatten path
+            context+="### $fname\n$(cat "$f")\n\n"
+        done
+    fi
+fi
+```
+
+The output looks like:
+
+```markdown
+## File Summaries (47 files cached)
+### src/index.ts
+**Purpose:** Entry point for the TokenStash plugin.
+**Key exports:** `initialize()`, `registerHooks()`.
+**Patterns:** Registers session-start and post-tool-use hooks on initialization.
+**Last updated:** 2026-03-13
+
+### src/lib/utils.ts
+**Purpose:** Utility functions for string manipulation and path handling.
+**Key exports:** `flattenPath()`, `escapeJson()`, `parseConfig()`.
+**Patterns:** Pure functions, no side effects.
+**Last updated:** 2026-03-12
+```
+
+<Tip>
+**Token savings:** A typical 200-line file might consume 1000+ tokens when read in full. A file summary consumes ~50 tokens — a **20x reduction** in context usage.
+</Tip>
+
+## Manual Updates
+
+You can manually update file summaries:
+
+1. **Edit directly:** Open `.tokenstash/files/<flattened-path>.md` and update the summary
+2. **Re-scan:** Run `/stash-scan --force` to regenerate all summaries from scratch
+3. **Delete:** Remove `.tokenstash/files/<flattened-path>.md` to clear a summary
+
+<Info>
+**Best practice:** Let auto-update handle most summaries. Only manually edit when you want to emphasize specific patterns or context that Claude might miss.
+</Info>

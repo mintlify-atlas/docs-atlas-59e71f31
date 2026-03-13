@@ -1,0 +1,184 @@
+---
+title: "/stash-scan"
+description: "Scan the repo and build the full TokenStash index — summarize every file upfront"
+---
+
+## Overview
+
+The `/stash-scan` command indexes your entire repository and builds a complete TokenStash. Use this when starting with a new project or when you want to refresh your entire stash.
+
+```bash
+/stash-scan
+```
+
+<Tip>
+Run `/stash-scan` once on a new project to give Claude full context of your codebase immediately.
+</Tip>
+
+## Flags
+
+<ParamField path="--force" type="flag">
+  Re-scan all files and overwrite existing summaries. By default, `/stash-scan` skips files that already have summaries.
+</ParamField>
+
+### Force re-scan
+
+```bash
+/stash-scan --force
+```
+
+Use `--force` when:
+- Files have changed significantly since the last scan
+- You want to regenerate all summaries with fresh context
+- The stash feels stale or inaccurate
+
+## What it does
+
+When you run `/stash-scan`, Claude performs a full repository scan:
+
+### 1. Finds repo root
+
+Uses `git rev-parse --show-toplevel` to find the repository root. All stash files are written to `<repo-root>/.tokenstash/`.
+
+### 2. Discovers files
+
+Lists all files in the repository, excluding:
+
+- `.git/`, `node_modules/`, `.tokenstash/`, `dist/`, `build/`, `.next/`
+- Binary files (images, fonts, compiled artifacts)
+- Files over 500 lines (skipped with a note)
+
+<Note>
+Very large files (over 500 lines) are skipped during scanning to avoid context overload. You can still manually save summaries for these files using `/stash-save` if needed.
+</Note>
+
+### 3. Summarizes each file
+
+For each file not yet summarized (or all files if `--force` was used):
+
+- Reads the file contents
+- Writes `.tokenstash/files/<flattened-path>.md` with:
+
+```markdown
+**Purpose:** One sentence.
+**Key exports:** Main functions/classes/constants.
+**Patterns:** Notable patterns.
+**Last updated:** YYYY-MM-DD
+```
+
+The flattened path converts directory separators to dashes. For example:
+- `src/auth/jwt.ts` → `src-auth-jwt.ts.md`
+- `lib/utils.py` → `lib-utils.py.md`
+
+### 4. Writes architecture.md
+
+Based on the full picture of the codebase, writes `.tokenstash/architecture.md`:
+
+```markdown
+## Architecture Overview
+[2-4 sentences]
+
+## Key Components
+- `path/`: description
+...
+
+## Patterns
+- [patterns observed]
+
+## Tech Stack
+- [main technologies]
+```
+
+### 5. Reports results
+
+Tells you how many files were summarized and where the stash was written:
+
+```
+Scanned 42 files. TokenStash written to /path/to/repo/.tokenstash/
+```
+
+## When to use
+
+<CardGroup cols={2}>
+  <Card title="New project" icon="sparkles">
+    Build the initial stash when starting with TokenStash
+  </Card>
+  
+  <Card title="After pulling changes" icon="code-branch">
+    Update summaries after major changes from teammates
+  </Card>
+  
+  <Card title="Stale context" icon="clock">
+    Refresh when the stash feels outdated
+  </Card>
+  
+  <Card title="Large refactor" icon="wand-magic-sparkles">
+    Use `--force` to regenerate all summaries after major changes
+  </Card>
+</CardGroup>
+
+## Normal vs. Force scan
+
+| Scan type | Command | Behavior |
+|---|---|---|
+| **Normal** | `/stash-scan` | Skip files that already have summaries |
+| **Force** | `/stash-scan --force` | Re-scan all files, overwrite existing summaries |
+
+<Warning>
+`/stash-scan --force` will overwrite all existing file summaries. Use this when you want a completely fresh index, but be aware that any manual edits to summaries will be lost.
+</Warning>
+
+## Files created
+
+The command creates/updates files in `.tokenstash/` at your repo root:
+
+| File | Contents |
+|---|---|
+| `architecture.md` | High-level codebase overview — structure, patterns, key components |
+| `files/<path>.md` | Per-file summaries (3-5 lines each) for every discovered file |
+
+<Note>
+`/stash-scan` does **not** create `decisions.md` — that's only written by `/stash-save`.
+</Note>
+
+## Example output
+
+After running `/stash-scan`, your `.tokenstash/` directory might look like:
+
+```
+.tokenstash/
+├── architecture.md
+└── files/
+    ├── src-auth-jwt.ts.md
+    ├── src-middleware-auth.ts.md
+    ├── src-routes-api.ts.md
+    ├── lib-utils.ts.md
+    └── config-database.ts.md
+```
+
+**Example file summary** (`.tokenstash/files/src-auth-jwt.ts.md`):
+
+```markdown
+**Purpose:** JWT generation and validation for API authentication.
+**Key exports:** generateToken, validateToken, refreshToken.
+**Patterns:** HS256 signing, 1-hour access token expiration, refresh token rotation.
+**Last updated:** 2026-03-13
+```
+
+## Performance
+
+<Tip>
+Scanning is fast for most projects. A typical 50-file codebase takes 30-60 seconds. Files are processed in parallel where possible.
+</Tip>
+
+## Related commands
+
+- [/stash-save](/commands/stash-save) — Save decisions and context from the current session
+- [/stash-clear](/commands/stash-clear) — Wipe the stash and start fresh
+
+## Typical workflow
+
+1. **First time:** Run `/stash-scan` to index your entire codebase
+2. **During development:** Let auto-save handle file updates as you edit
+3. **End of session:** Run `/stash-save` to capture decisions
+4. **After major changes:** Run `/stash-scan --force` to refresh everything

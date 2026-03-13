@@ -1,97 +1,87 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "TokenStash"
+description: "Cache project context locally so Claude starts every session already knowing your codebase"
 ---
 
-## Setting up
+## No more re-reading files. No more re-explaining architecture.
 
-Get your documentation site up and running in minutes.
+TokenStash is a Claude Code plugin that saves summaries of your project to `.tokenstash/` as you work. At the start of every session, the stash is automatically injected into Claude's context — so Claude remembers your codebase, your decisions, and your patterns.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+## Get started in minutes
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Installation"
+    icon="download"
+    href="/installation"
   >
-    Edit your docs locally and preview them in real time.
+    Install TokenStash from the Claude Code plugin marketplace
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    Run your first stash scan and start building context
   </Card>
   <Card
-    title="API documentation"
+    title="Commands"
     icon="terminal"
-    href="/api-reference/introduction"
+    href="/commands/overview"
   >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+    Learn all the slash commands to manage your stash
   </Card>
   <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
+    title="Best Practices"
+    icon="lightbulb"
+    href="/guides/best-practices"
   >
-    Add sample code to demonstrate how to use your product.
+    Get the most out of TokenStash with proven workflows
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## Key Features
+
+<CardGroup cols={2}>
+  <Card
+    title="Automatic Context Injection"
+    icon="wand-magic-sparkles"
+  >
+    Your stash is automatically loaded at session start — no manual setup required
+  </Card>
+  <Card
+    title="Per-File Summaries"
+    icon="file-lines"
+  >
+    Auto-updates file summaries after every edit to keep context fresh
+  </Card>
+  <Card
+    title="Decision Logging"
+    icon="book"
+  >
+    Track what was decided each session and why for long-term project memory
+  </Card>
+  <Card
+    title="Global & Project Scopes"
+    icon="layer-group"
+  >
+    Maintain global preferences plus project-specific stashes with override priority
+  </Card>
+</CardGroup>
+
+## What gets stashed
+
+TokenStash maintains four types of context files:
+
+- **architecture.md** — High-level codebase overview, structure, patterns, and key components
+- **decisions.md** — Decision log documenting what was decided each session and why
+- **rules.md** — Project-specific rules and conventions (like CLAUDE.md on steroids)
+- **files/\<path\>.md** — Per-file summaries (3-5 lines each) that update automatically
 
 <Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
+  title="Learn how it works"
+  icon="gears"
+  href="/concepts/how-it-works"
 >
-  Browse our showcase of exceptional documentation sites.
+  Dive into the architecture and understand how TokenStash builds and maintains context
 </Card>

@@ -1,0 +1,136 @@
+---
+title: Recommended Workflows
+description: How to use TokenStash effectively throughout your development cycle
+---
+
+TokenStash works best when integrated into your natural development rhythm. Here's how the stash builds up and when to use each command.
+
+## Starting a New Project
+
+<Steps>
+  <Step title="Run a full repository scan">
+    When you first start working on a project, index the entire codebase to build the initial stash:
+
+    ```bash
+    /stash-scan
+    ```
+
+    This creates summaries for all files in `.tokenstash/files/` and generates an initial `architecture.md` with:
+    - High-level codebase overview
+    - Key components and their locations
+    - Notable patterns and tech stack
+  </Step>
+
+  <Step title="Review the generated stash">
+    Check `.tokenstash/architecture.md` to see Claude's understanding of your project structure. The scan excludes:
+    - `.git/`, `node_modules/`, `dist/`, `build/`, `.next/`
+    - Binary files (images, fonts, compiled artifacts)
+    - Files over 500 lines (noted but skipped)
+  </Step>
+
+  <Step title="Start coding">
+    In your next session, the stash is automatically injected into Claude's context. No need to re-explain your codebase.
+  </Step>
+</Steps>
+
+<Tip>
+  If you've already worked on the project and want to refresh everything, use `/stash-scan --force` to overwrite existing summaries.
+</Tip>
+
+---
+
+## During Development
+
+TokenStash updates automatically as you work — no manual intervention needed.
+
+### Auto-Updates After Every Edit
+
+After you edit a file, Claude silently updates that file's summary in `.tokenstash/files/<path>.md`. Each summary contains:
+
+- **Purpose**: One sentence describing what the file does
+- **Key exports**: Main functions/classes/constants
+- **Patterns**: Notable patterns (e.g., "uses factory pattern", "singleton")
+- **Last updated**: Date stamp
+
+<Note>
+  Auto-updates are silent — Claude doesn't interrupt you to announce them. The stash stays current without you thinking about it.
+</Note>
+
+### When Auto-Updates Skip Files
+
+Claude won't create summaries for:
+- Boilerplate files (imports only, empty files)
+- Type-only files with no logic
+- Deleted files (summaries are removed automatically)
+
+---
+
+## End of Session
+
+<Steps>
+  <Step title="Run /stash-save">
+    At the end of a productive session, save a summary of what you did:
+
+    ```bash
+    /stash-save
+    ```
+
+    This updates three key files:
+  </Step>
+
+  <Step title="decisions.md gets updated">
+    Claude appends a dated entry to `.tokenstash/decisions.md`:
+
+    ```markdown
+    ## 2026-03-13 — Added user authentication
+
+    **Decisions:**
+    - Chose JWT over sessions for stateless auth
+    - Used bcrypt for password hashing (cost factor 12)
+
+    **Files changed:** src/auth.ts, src/middleware/auth.ts
+    ```
+
+    This creates a living decision log your future self (and Claude) can reference.
+  </Step>
+
+  <Step title="architecture.md gets refreshed (if needed)">
+    If you added new modules, changed patterns, or introduced new dependencies, Claude rewrites `architecture.md` to reflect the current state.
+
+    If nothing structural changed, it's left alone.
+  </Step>
+
+  <Step title="File summaries get swept">
+    Any files you read or edited during the session that don't have summaries yet get one now.
+  </Step>
+</Steps>
+
+<Tip>
+  You'll see a confirmation: "TokenStash saved. Session summary written to .tokenstash/decisions.md."
+</Tip>
+
+---
+
+## Re-scanning vs. Saving
+
+| Command | When to use it | What it does |
+|---------|----------------|---------------|
+| `/stash-scan` | New project, or you want to index files you haven't touched yet | Scans the whole repo, skips files that already have summaries |
+| `/stash-scan --force` | You want to regenerate everything from scratch | Overwrites all existing summaries |
+| `/stash-save` | End of a session | Updates decisions, architecture, and any missing file summaries |
+
+<Note>
+  **Auto-updates happen during development** — you rarely need to manually trigger scans unless you're starting fresh or want to index untouched files.
+</Note>
+
+---
+
+## Clearing the Stash
+
+If you want to start over:
+
+```bash
+/stash-clear
+```
+
+This wipes the project stash (asks for confirmation first). The global stash at `~/.claude/tokenstash/` is unaffected.

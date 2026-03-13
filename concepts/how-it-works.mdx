@@ -1,0 +1,134 @@
+---
+title: "How TokenStash Works"
+description: "Understand the lifecycle of stash loading, automatic updates, and manual saves"
+---
+
+TokenStash operates on a simple principle: cache project context locally so Claude starts every session already knowing your codebase. No re-reading files. No re-explaining architecture. Just start coding.
+
+## The Stash Lifecycle
+
+TokenStash follows a three-phase workflow:
+
+<Steps>
+  <Step title="Session Start: Load Stash">
+    The `session-start` hook automatically injects your cached context at the beginning of every Claude Code session.
+    
+    **What gets loaded:**
+    - Global stash (`~/.claude/tokenstash/`) — preferences and rules that apply to all projects
+    - Project stash (`<repo-root>/.tokenstash/`) — architecture, decisions, rules, and file summaries
+    - File summaries from `.tokenstash/files/` — concise 3-5 line summaries of individual files
+    
+    The context is wrapped in `<tokenstash>` tags and includes structured sections like:
+    
+    ```markdown
+    ## Project: architecture.md
+    [your architecture overview]
+    
+    ## Project: decisions.md
+    [your decision log]
+    
+    ## File Summaries (47 files cached)
+    ### src/lib/utils.ts
+    [file summary]
+    ```
+  </Step>
+  
+  <Step title="Post-Tool-Use: Trigger Updates">
+    The `post-tool-use` hook monitors file edits and automatically reminds Claude to update summaries.
+    
+    **How it works:**
+    - Listens for `Write` and `Edit` tool calls
+    - Extracts the `file_path` from the tool input
+    - Injects a reminder into Claude's context:
+    
+    ```xml
+    <tokenstash-reminder>
+    You just edited `path/to/file.ts`. 
+    Use the tokenstash:auto-update skill to update its summary in .tokenstash/files/ now.
+    </tokenstash-reminder>
+    ```
+    
+    This triggers the `auto-update` skill to silently update the file's summary.
+  </Step>
+  
+  <Step title="Manual Save: Capture Session">
+    Run `/stash-save` at the end of a session to capture decisions and architecture changes.
+    
+    **What gets saved:**
+    1. **decisions.md** — Append a timestamped session summary with decisions made and files changed
+    2. **architecture.md** — Rewrite if structure changed (new modules, patterns, dependencies)
+    3. **File summaries** — Sweep any files you edited/read that don't have current summaries
+  </Step>
+</Steps>
+
+## How the Stash Builds Up
+
+<CardGroup cols={3}>
+  <Card title="Auto" icon="bolt">
+    After every file edit, Claude updates that file's summary silently via the `auto-update` skill
+  </Card>
+  <Card title="Manual" icon="floppy-disk">
+    Run `/stash-save` at the end of a session to save decisions and architecture
+  </Card>
+  <Card title="Full Index" icon="folder-tree">
+    Run `/stash-scan` once on a new project to summarize everything upfront
+  </Card>
+</CardGroup>
+
+## Priority and Overrides
+
+When both global and project stashes exist, **project stash takes precedence**:
+
+| Scope | Path | Priority |
+|---|---|---|
+| Global | `~/.claude/tokenstash/` | Base (applies to all projects) |
+| Project | `<repo-root>/.tokenstash/` | Override (takes precedence) |
+
+This allows you to set global preferences and rules while letting project-specific context override them.
+
+## Hook Implementation Details
+
+<CodeGroup>
+```bash session-start hook (excerpt)
+# Build context from stash files
+context=""
+
+# Load global stash
+if [ -d "$GLOBAL_STASH_DIR" ]; then
+    for f in preferences.md rules.md; do
+        fpath="$GLOBAL_STASH_DIR/$f"
+        if [ -f "$fpath" ]; then
+            context+="## Global: $f\n$(cat "$fpath")\n\n"
+        fi
+    done
+fi
+
+# Load project stash (takes priority)
+if [ -d "$PROJECT_STASH_DIR" ]; then
+    for f in architecture.md decisions.md rules.md; do
+        fpath="$PROJECT_STASH_DIR/$f"
+        if [ -f "$fpath" ]; then
+            context+="## Project: $f\n$(cat "$fpath")\n\n"
+        fi
+    done
+    # Load file summaries...
+fi
+```
+
+```bash post-tool-use hook (excerpt)
+# Only act on Write and Edit tool calls with a file path
+if [[ "$tool_name" != "Write" && "$tool_name" != "Edit" ]] || [ -z "$file_path" ]; then
+    cat << 'JSONEOF'
+{"no_op": true}
+JSONEOF
+    exit 0
+fi
+
+filename=$(basename "$file_path")
+reminder="<tokenstash-reminder>You just edited \`${file_path}\`. Use the tokenstash:auto-update skill to update its summary in .tokenstash/files/ now.</tokenstash-reminder>"
+```
+</CodeGroup>
+
+<Info>
+The stash is designed to be **silent and unobtrusive**. File summaries update automatically after edits, and session saves only happen when you explicitly run `/stash-save`.
+</Info>

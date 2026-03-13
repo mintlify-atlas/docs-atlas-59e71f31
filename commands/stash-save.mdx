@@ -1,0 +1,149 @@
+---
+title: "/stash-save"
+description: "Save a full session summary to the TokenStash — decisions, architecture, and file summaries"
+---
+
+## Overview
+
+The `/stash-save` command captures the current session's work and saves it to the TokenStash. Use this at the end of a coding session to document what was decided, why it was decided, and what files were changed.
+
+```bash
+/stash-save
+```
+
+<Tip>
+Run `/stash-save` at the end of every session to keep a running decision log. Future Claude sessions will have this context automatically.
+</Tip>
+
+## What it does
+
+When you run `/stash-save`, Claude performs a full stash save by:
+
+### 1. Updates decisions.md
+
+Appends a new entry to `.tokenstash/decisions.md` (creates the file if it doesn't exist):
+
+```markdown
+## YYYY-MM-DD — <one-line session summary>
+
+**Decisions:**
+- [What was decided and why]
+- [Another decision if applicable]
+
+**Files changed:** file1.ts, file2.py
+```
+
+This creates a chronological log of all decisions made across sessions.
+
+### 2. Updates architecture.md
+
+If the codebase structure changed during the session (new modules, changed patterns, new dependencies), Claude rewrites `.tokenstash/architecture.md` to reflect the current state.
+
+<Note>
+If nothing structural changed, `architecture.md` is left alone.
+</Note>
+
+The architecture file follows this format:
+
+```markdown
+## Architecture Overview
+[2-4 sentences describing the overall structure]
+
+## Key Components
+- `path/to/module`: what it does
+- `path/to/module`: what it does
+
+## Patterns
+- [notable patterns used]
+```
+
+### 3. Sweeps file summaries
+
+For every file that was edited or read during the session that doesn't have a current summary in `.tokenstash/files/`, Claude writes one now.
+
+Each file summary includes:
+- **Purpose:** One sentence description
+- **Key exports:** Main functions/classes/constants
+- **Patterns:** Notable patterns used
+- **Last updated:** YYYY-MM-DD timestamp
+
+### 4. Confirmation
+
+When the save is complete, Claude confirms:
+
+```
+TokenStash saved. Session summary written to .tokenstash/decisions.md.
+```
+
+## When to use
+
+<CardGroup cols={2}>
+  <Card title="End of session" icon="check">
+    Save decisions and context before ending your coding session
+  </Card>
+  
+  <Card title="After major changes" icon="code-branch">
+    Capture architectural changes or significant refactors
+  </Card>
+  
+  <Card title="Decision points" icon="lightbulb">
+    Document why you chose one approach over another
+  </Card>
+  
+  <Card title="Before handoff" icon="users">
+    Record context for your future self or teammates
+  </Card>
+</CardGroup>
+
+## Files updated
+
+The command updates files in `.tokenstash/` at your repo root:
+
+| File | Updated when |
+|---|---|
+| `decisions.md` | Always — every save appends a new entry |
+| `architecture.md` | Only if structural changes were made |
+| `files/<path>.md` | For each file edited/read without an existing summary |
+
+## Example output
+
+After running `/stash-save`, you might see updates like:
+
+**decisions.md:**
+```markdown
+## 2026-03-13 — Refactored authentication to use JWT
+
+**Decisions:**
+- Switched from session-based auth to JWT for stateless API
+- Used HS256 algorithm with 1-hour expiration
+- Stored refresh tokens in Redis with 7-day TTL
+
+**Files changed:** auth/jwt.ts, middleware/auth.ts, config/redis.ts
+```
+
+**architecture.md:**
+```markdown
+## Architecture Overview
+Express API with TypeScript, PostgreSQL database, Redis for caching and sessions.
+Authentication now JWT-based with refresh token rotation.
+
+## Key Components
+- `auth/`: JWT generation and validation
+- `middleware/`: Request authentication and rate limiting
+- `routes/`: API endpoint handlers
+- `db/`: Database models and migrations
+
+## Patterns
+- Dependency injection for testability
+- Repository pattern for data access
+- JWT with refresh token rotation
+```
+
+## Related commands
+
+- [/stash-scan](/commands/stash-scan) — Build the initial index of your entire repo
+- [/stash-clear](/commands/stash-clear) — Wipe the stash and start fresh
+
+<Warning>
+`/stash-save` only saves context from the current session. To index your entire codebase upfront, use `/stash-scan`.
+</Warning>
