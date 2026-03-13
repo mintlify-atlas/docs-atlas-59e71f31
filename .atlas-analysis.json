@@ -1,0 +1,69 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "TokenStash",
+  "projectDescription": "A Claude Code plugin that caches project context locally so Claude starts every session already knowing your codebase.",
+  "theme": "palm",
+  "primaryColor": "#8B5CF6",
+  "lightColor": "#A78BFA",
+  "darkColor": "#7C3AED",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Core Concepts",
+        "pages": [
+          "concepts/how-it-works",
+          "concepts/stash-structure",
+          "concepts/file-summaries"
+        ]
+      },
+      {
+        "group": "Commands",
+        "pages": [
+          "commands/overview",
+          "commands/stash-save",
+          "commands/stash-scan",
+          "commands/stash-clear"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/workflow",
+          "guides/best-practices",
+          "guides/gitignore"
+        ]
+      },
+      {
+        "group": "Advanced",
+        "pages": [
+          "advanced/hooks",
+          "advanced/skills",
+          "advanced/global-vs-project"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Automatic context injection at session start",
+    "Per-file summaries with auto-update on edits",
+    "Decision and architecture logging",
+    "Global and project-level stash scopes",
+    "Full repository scanning with --force flag"
+  ],
+  "publicApiSurface": [
+    "/stash-save - Save session summary with decisions and architecture",
+    "/stash-scan - Index entire repository and create summaries",
+    "/stash-scan --force - Re-scan all files and overwrite existing summaries",
+    "/stash-clear - Wipe project stash after confirmation",
+    "SessionStart hook - Injects stash context automatically",
+    "PostToolUse hook - Triggers auto-update after file edits"
+  ]
+}
